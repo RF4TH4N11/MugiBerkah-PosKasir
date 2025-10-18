@@ -1,16 +1,18 @@
-# SecureKasir
+# MugiBerkah x SecureKasir
 
-SecureKasir adalah aplikasi kasir modern berbasis web yang dapat digunakan secara offline. Aplikasi ini dirancang untuk memenuhi kebutuhan bisnis kecil hingga menengah dengan antarmuka yang intuitif dan fitur-fitur yang komprehensif.
+MugiBerkah x SecureKasir adalah aplikasi kasir modern berbasis web yang dapat digunakan secara offline. Aplikasi ini dirancang untuk memenuhi kebutuhan bisnis kecil hingga menengah dengan antarmuka yang intuitif dan fitur-fitur yang komprehensif.
 
 ## Fitur Utama
 
 - 💼 **Manajemen Produk**
+
   - Tambah, edit, dan hapus produk
   - Kategorisasi produk
   - Manajemen stok
   - Upload gambar produk
 
 - 🛒 **Transaksi**
+
   - Antarmuka kasir yang intuitif
   - Perhitungan otomatis
   - Diskon per transaksi
@@ -18,6 +20,7 @@ SecureKasir adalah aplikasi kasir modern berbasis web yang dapat digunakan secar
   - Cetak struk
 
 - 📊 **Dashboard**
+
   - Ringkasan penjualan
   - Statistik produk
   - Grafik kategori
@@ -41,26 +44,31 @@ SecureKasir adalah aplikasi kasir modern berbasis web yang dapat digunakan secar
 ## Screenshots
 
 ### Dashboard
+
 ![Dashboard](./screenshots/1m.png)
 
 Tampilan dashboard menampilkan ringkasan penjualan, statistik produk berdasarkan kategori, dan daftar transaksi terbaru. Dilengkapi dengan kartu informasi yang menampilkan total penjualan, penjualan hari ini, total transaksi, dan transaksi hari ini.
 
 ### Halaman Kasir
+
 ![POS Page](./screenshots/2m.png)
 
 Antarmuka kasir yang intuitif dengan katalog produk di sebelah kiri dan keranjang belanja di sebelah kanan. Mendukung pencarian produk, filter kategori, dan perhitungan otomatis termasuk diskon.
 
 ### Manajemen Produk
+
 ![Product Management](./screenshots/3m.png)
 
 Halaman pengaturan produk memungkinkan pengguna untuk menambah, mengedit, dan menghapus produk. Setiap produk dapat dikategorikan dan dilengkapi dengan gambar.
 
 ### Riwayat Transaksi
+
 ![Transaction History](./screenshots/4m.png)
 
 Halaman riwayat menampilkan seluruh transaksi yang telah dilakukan. Dilengkapi dengan fitur pencarian, filter tanggal, dan kemampuan untuk mencetak ulang struk.
 
 ### Mode Gelap
+
 ![Dark Mode](./screenshots/1m.png)
 
 Aplikasi mendukung mode gelap untuk kenyamanan penggunaan di kondisi cahaya rendah.
@@ -68,16 +76,19 @@ Aplikasi mendukung mode gelap untuk kenyamanan penggunaan di kondisi cahaya rend
 ## Instalasi
 
 1. Clone repositori
+
    ```bash
    git clone https://github.com/zdgdev/SecureKasir.git
    ```
 
 2. Masuk ke direktori proyek
+
    ```bash
    cd SecureKasir
    ```
 
 3. Install dependensi
+
    ```bash
    npm install
    ```
@@ -90,11 +101,13 @@ Aplikasi mendukung mode gelap untuk kenyamanan penggunaan di kondisi cahaya rend
 ## Penggunaan
 
 1. **Dashboard**
+
    - Lihat ringkasan penjualan
    - Monitor statistik produk
    - Pantau transaksi terbaru
 
 2. **Kasir**
+
    - Pilih produk dari katalog
    - Atur jumlah item
    - Terapkan diskon
@@ -102,6 +115,7 @@ Aplikasi mendukung mode gelap untuk kenyamanan penggunaan di kondisi cahaya rend
    - Cetak struk
 
 3. **Manajemen Produk**
+
    - Tambah produk baru
    - Edit informasi produk
    - Hapus produk
@@ -128,4 +142,7 @@ Kami sangat menghargai kontribusi dari komunitas. Jika Anda ingin berkontribusi:
 Proyek ini dilisensikan di bawah [MIT License](LICENSE)
 
 ## Kontak
+
 - Website: [https://github.com/zdgdev](https://github.com/zdgdev)
+  Collaboration with
+- Website: [https://github.com/RF4TH4N11](https://github.com/RF4TH4N11)

@@ -85,9 +85,7 @@ const Receipt: React.FC<ReceiptProps> = ({
     }
   };
 
-  const receiptNumber = transactionId
-    ? formatReceiptNumber(transactionId)
-    : "PREVIEW";
+  const receiptNumber = transactionId ? formatReceiptNumber(transactionId) : "";
   const transactionDate = date ? formatDate(date) : formatDate(new Date());
 
   return (
