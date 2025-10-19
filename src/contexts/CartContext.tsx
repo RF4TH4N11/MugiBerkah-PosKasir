@@ -15,6 +15,8 @@ export type CreateTransactionPayload = {
     name: string;
     price: number;
     quantity: number;
+    unitType?: "unit" | "kg"; // Tipe unit penjualan
+    weight?: number; // Untuk produk dengan unitType="kg"
     subtotal?: number; // FE boleh kirim; BE juga re-calc
   }>;
   subtotal: number;
@@ -111,25 +113,67 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     setCart((prev) => {
       const exist = prev.find((x) => x.productId === item.productId);
       if (exist) {
+        // Untuk produk kg, gunakan weight; untuk unit, gunakan quantity
         const quantity = exist.quantity + item.quantity;
+        const weight = (exist.weight || 0) + (item.weight || 0);
+
+        // Hitung subtotal berdasarkan unitType
+        let subtotal = 0;
+        if (item.unitType === "kg") {
+          subtotal = exist.price * weight;
+        } else {
+          subtotal = exist.price * quantity;
+        }
+
         return prev.map((x) =>
           x.productId === item.productId
-            ? { ...x, quantity, subtotal: x.price * quantity }
+            ? {
+                ...x,
+                quantity,
+                weight: item.unitType === "kg" ? weight : quantity,
+                subtotal,
+              }
             : x
         );
       }
-      return [...prev, { ...item, subtotal: item.price * item.quantity }];
+
+      // Calculate subtotal untuk item baru
+      let subtotal = 0;
+      if (item.unitType === "kg") {
+        subtotal = item.price * (item.weight || item.quantity);
+      } else {
+        subtotal = item.price * item.quantity;
+      }
+
+      return [...prev, { ...item, subtotal }];
     });
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity < 1) return;
     setCart((prev) =>
-      prev.map((x) =>
-        x.productId === productId
-          ? { ...x, quantity, subtotal: x.price * quantity }
-          : x
-      )
+      prev.map((x) => {
+        if (x.productId === productId) {
+          // Validasi minimum
+          const minValue = x.unitType === "kg" ? 0.1 : 1;
+          if (quantity < minValue) return x; // Skip jika dibawah minimum
+
+          // Hitung subtotal
+          let subtotal = 0;
+          if (x.unitType === "kg") {
+            subtotal = x.price * quantity;
+          } else {
+            subtotal = x.price * quantity;
+          }
+
+          return {
+            ...x,
+            quantity,
+            weight: x.unitType === "kg" ? quantity : undefined,
+            subtotal,
+          };
+        }
+        return x;
+      })
     );
   };
 
@@ -144,7 +188,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const calculateTotal = useMemo(
     () => () => {
-      const subtotal = cart.reduce((s, it) => s + it.price * it.quantity, 0);
+      const subtotal = cart.reduce((s, it) => {
+        // Untuk kg: price * weight; untuk unit: price * quantity
+        if (it.unitType === "kg") {
+          return s + it.price * (it.weight || it.quantity);
+        }
+        return s + it.price * it.quantity;
+      }, 0);
       const total = Math.max(0, subtotal - (discount || 0));
       return { subtotal, total };
     },

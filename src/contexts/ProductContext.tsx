@@ -42,6 +42,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({
       image: p.image,
       category: p.category,
       stock: p.stock,
+      unitType: p.unitType || "unit",
     })) as Product[];
     setProducts(rows);
   };
@@ -81,6 +82,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({
         image: p.image,
         category: p.category,
         stock: p.stock,
+        unitType: p.unitType || "unit",
       },
     ]);
   };
@@ -92,6 +94,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({
       image: product.image,
       category: product.category,
       stock: product.stock,
+      unitType: product.unitType || "unit",
     };
     const { data } = await http.put(`/products/${product.id}`, payload);
     const p = data.data;
@@ -105,6 +108,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({
               image: p.image,
               category: p.category,
               stock: p.stock,
+              unitType: p.unitType || "unit",
             }
           : x
       )

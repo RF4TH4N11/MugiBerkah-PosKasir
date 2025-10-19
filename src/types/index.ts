@@ -5,6 +5,7 @@ export interface Product {
   image: string;
   category: string;
   stock: number;
+  unitType?: "unit" | "kg";
 }
 
 export interface CartItem {
@@ -13,6 +14,8 @@ export interface CartItem {
   price: number;
   quantity: number;
   subtotal: number;
+  unitType?: "unit" | "kg";
+  weight?: number;
 }
 
 export interface Transaction {
