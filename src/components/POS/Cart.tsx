@@ -58,7 +58,9 @@ const Cart: React.FC = () => {
         name: it.name,
         price: it.price,
         quantity: it.quantity,
-        subtotal: it.price * it.quantity,
+        unitType: it.unitType || "unit",
+        weight: it.weight,
+        subtotal: it.subtotal,
       })),
       subtotal,
       discount,
@@ -121,6 +123,7 @@ const Cart: React.FC = () => {
                 <div className="font-medium truncate">{item.name}</div>
                 <div className="text-xs sm:text-sm">
                   {formatCurrency(item.price)}
+                  {item.unitType === "kg" && "/kg"}
                 </div>
               </div>
 
@@ -136,13 +139,18 @@ const Cart: React.FC = () => {
                   </button>
 
                   <span className="w-6 sm:w-8 text-center text-sm">
-                    {item.quantity}
+                    {item.unitType === "kg"
+                      ? item.quantity.toFixed(1)
+                      : item.quantity}
                   </span>
 
                   <button
                     className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors active:scale-95"
                     onClick={() =>
-                      handleQuantityChange(item.productId, item.quantity + 1)
+                      handleQuantityChange(
+                        item.productId,
+                        item.quantity + (item.unitType === "kg" ? 0.1 : 1)
+                      )
                     }
                   >
                     <Plus size={12} className="sm:size-4" />

@@ -136,7 +136,7 @@ const Receipt: React.FC<ReceiptProps> = ({
           <thead>
             <tr className="border-b">
               <th className="text-left py-1">Item</th>
-              <th className="text-right py-1">Qty</th>
+              <th className="text-right py-1">Qty/Berat</th>
               <th className="text-right py-1">Harga</th>
               <th className="text-right py-1">Jumlah</th>
             </tr>
@@ -145,9 +145,14 @@ const Receipt: React.FC<ReceiptProps> = ({
             {items.map((item, index) => (
               <tr key={item.productId || index}>
                 <td className="text-left py-1">{item.name}</td>
-                <td className="text-right py-1">{item.quantity}</td>
+                <td className="text-right py-1">
+                  {item.unitType === "kg"
+                    ? `${item.quantity.toFixed(1)} kg`
+                    : `${item.quantity}`}
+                </td>
                 <td className="text-right py-1">
                   {formatCurrency(item.price)}
+                  {item.unitType === "kg" && "/kg"}
                 </td>
                 <td className="text-right py-1">
                   {formatCurrency(item.subtotal)}
