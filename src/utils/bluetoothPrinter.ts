@@ -1,4 +1,3 @@
-// utils/bluetoothPrinter.ts
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
 /// <reference lib="webworker.importscripts" />
@@ -12,234 +11,236 @@ interface BluetoothPrinterDevice {
 class BluetoothThermalPrinter {
   private printerDevice: BluetoothPrinterDevice | null = null;
 
-  async connect(): Promise<void> {
-    try {
-      // Check if Web Bluetooth is supported
-      if (!navigator.bluetooth) {
-        throw new Error(
-          "Web Bluetooth API tidak didukung di browser ini. Gunakan Chrome atau Edge."
-        );
-      }
+  // Daftar UUID service & characteristic umum untuk printer thermal
+  private readonly KNOWN_SERVICES = [
+    "000018f0-0000-1000-8000-00805f9b34fb", // Standard thermal
+    "49535343-fe7d-4ae5-8fa9-9fafd205e455", // Nordic UART
+    "0000ffe0-0000-1000-8000-00805f9b34fb", // Common Chinese printers (Zjiang, etc.)
+    "6e400001-b5a3-f393-e0a9-e50e24dcca9e", // Nordic UART alternative
+  ];
 
-      // Request Bluetooth device
+  private readonly SERVICE_CHAR_MAP: Record<string, string[]> = {
+    "000018f0-0000-1000-8000-00805f9b34fb": [
+      "00002af1-0000-1000-8000-00805f9b34fb",
+    ],
+    "49535343-fe7d-4ae5-8fa9-9fafd205e455": [
+      "49535343-8841-43f4-a8d4-ecbe34729bb3",
+    ],
+    "0000ffe0-0000-1000-8000-00805f9b34fb": [
+      "0000ffe1-0000-1000-8000-00805f9b34fb",
+    ],
+    "6e400001-b5a3-f393-e0a9-e50e24dcca9e": [
+      "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
+    ],
+  };
+
+  async connect(): Promise<void> {
+    if (!this.isSupported()) {
+      throw new Error(
+        "Web Bluetooth tidak didukung. Gunakan Chrome di Android atau desktop."
+      );
+    }
+
+    try {
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: [
-          "000018f0-0000-1000-8000-00805f9b34fb", // Common thermal printer
-          "49535343-fe7d-4ae5-8fa9-9fafd205e455", // Another common service
-        ],
+        optionalServices: this.KNOWN_SERVICES,
       });
 
-      console.log("Printer selected:", device.name);
+      console.log("Perangkat dipilih:", device.name || device.id);
 
-      // Connect to GATT Server
       const server = await device.gatt?.connect();
-      if (!server) throw new Error("Failed to connect to GATT server");
+      if (!server) throw new Error("Gagal terhubung ke GATT server");
 
-      // Try to get service and characteristic
-      let service;
-      let characteristic;
+      const { service, characteristic } =
+        await this.findCompatibleServiceAndChar(server);
+      if (!characteristic)
+        throw new Error(
+          "Tidak ditemukan karakteristik printer yang kompatibel"
+        );
 
-      try {
-        service = await server.getPrimaryService(
-          "000018f0-0000-1000-8000-00805f9b34fb"
-        );
-        characteristic = await service.getCharacteristic(
-          "00002af1-0000-1000-8000-00805f9b34fb"
-        );
-      } catch {
-        // Try alternative service/characteristic
-        service = await server.getPrimaryService(
-          "49535343-fe7d-4ae5-8fa9-9fafd205e455"
-        );
-        characteristic = await service.getCharacteristic(
-          "49535343-8841-43f4-a8d4-ecbe34729bb3"
-        );
-      }
-
-      this.printerDevice = {
-        device,
-        server,
-        characteristic,
-      };
-
-      // Save device ID for reconnection
+      this.printerDevice = { device, server, characteristic };
       localStorage.setItem("lastPrinterDeviceId", device.id);
-
-      console.log("Connected to printer");
+      console.log("Printer berhasil terhubung");
     } catch (error) {
-      console.error("Connection error:", error);
+      console.error("Error saat koneksi:", error);
       throw error;
     }
   }
 
   async reconnect(): Promise<void> {
+    if (!this.isSupported()) return;
+
     try {
-      if (!navigator.bluetooth) return;
+      const lastDeviceId = localStorage.getItem("lastPrinterDeviceId");
+      if (!lastDeviceId) return;
 
       const devices = await navigator.bluetooth.getDevices();
-      const lastDeviceId = localStorage.getItem("lastPrinterDeviceId");
-      const device = devices.find((d) => d.id === lastDeviceId);
+      const device = devices.find((d) => d.id === lastDeviceId && d.gatt);
 
-      if (device && device.gatt) {
-        const server = await device.gatt.connect();
-        let service;
-        let characteristic;
+      if (!device?.gatt) return;
 
-        try {
-          service = await server.getPrimaryService(
-            "000018f0-0000-1000-8000-00805f9b34fb"
-          );
-          characteristic = await service.getCharacteristic(
-            "00002af1-0000-1000-8000-00805f9b34fb"
-          );
-        } catch {
-          service = await server.getPrimaryService(
-            "49535343-fe7d-4ae5-8fa9-9fafd205e455"
-          );
-          characteristic = await service.getCharacteristic(
-            "49535343-8841-43f4-a8d4-ecbe34729bb3"
-          );
-        }
+      const server = await device.gatt.connect();
+      const { characteristic } = await this.findCompatibleServiceAndChar(
+        server
+      );
 
+      if (characteristic) {
         this.printerDevice = { device, server, characteristic };
+        console.log("Rekoneksi berhasil");
       }
     } catch (error) {
-      console.error("Reconnection error:", error);
+      console.error("Rekoneksi gagal:", error);
     }
+  }
+
+  private async findCompatibleServiceAndChar(
+    server: BluetoothRemoteGATTServer
+  ): Promise<{
+    service?: BluetoothRemoteGATTService;
+    characteristic?: BluetoothRemoteGATTCharacteristic;
+  }> {
+    // Coba service yang dikenal satu per satu
+    for (const serviceUuid of this.KNOWN_SERVICES) {
+      try {
+        const service = await server.getPrimaryService(serviceUuid);
+        const charUuids = this.SERVICE_CHAR_MAP[serviceUuid] || [];
+
+        for (const charUuid of charUuids) {
+          try {
+            const characteristic = await service.getCharacteristic(charUuid);
+            // Pastikan bisa write
+            if (
+              characteristic.properties.write ||
+              characteristic.properties.writeWithoutResponse
+            ) {
+              return { service, characteristic };
+            }
+          } catch {
+            // Ignore
+          }
+        }
+      } catch {
+        // Service tidak tersedia → lanjut ke berikutnya
+      }
+    }
+
+    // Fallback: coba semua service & characteristic yang ada
+    try {
+      const allServices = await server.getPrimaryServices();
+      for (const service of allServices) {
+        const chars = await service.getCharacteristics();
+        for (const char of chars) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            console.warn("Menggunakan fallback characteristic:", char.uuid);
+            return { service, characteristic: char };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Fallback scan gagal:", e);
+    }
+
+    return {};
   }
 
   async printReceipt(receiptElement: HTMLElement): Promise<void> {
     if (!this.printerDevice?.characteristic) {
-      throw new Error("Printer not connected");
+      throw new Error("Printer belum terhubung");
     }
 
     try {
-      // Initialize printer
-      await this.sendCommand([0x1b, 0x40]); // ESC @ - Initialize printer
+      await this.sendCommand([0x1b, 0x40]); // Initialize
 
-      // Get receipt data
       const receiptData = this.convertHTMLToESCPOS(receiptElement);
+      const chunkSize = 200; // Lebih kecil untuk kestabilan mobile
 
-      // Send data in chunks (Bluetooth has packet size limits)
-      const chunkSize = 512;
       for (let i = 0; i < receiptData.length; i += chunkSize) {
         const chunk = receiptData.slice(i, i + chunkSize);
-        await this.printerDevice.characteristic.writeValue(chunk);
-        await this.delay(100); // Delay between chunks
+        (await this.printerDevice.characteristic.writeValueWithoutResponse)
+          ? this.printerDevice.characteristic.writeValueWithoutResponse(chunk)
+          : this.printerDevice.characteristic.writeValue(chunk);
+        await this.delay(50);
       }
 
-      // Feed and cut paper
-      await this.sendCommand([0x0a, 0x0a, 0x0a]); // 3 line feeds
-      await this.sendCommand([0x1d, 0x56, 0x00]); // GS V 0 - Cut paper
+      await this.sendCommand([0x0a, 0x0a, 0x0a]); // Feed
+      await this.sendCommand([0x1d, 0x56, 0x00]); // Cut
 
-      console.log("Print complete");
+      console.log("Cetak selesai");
     } catch (error) {
-      console.error("Print error:", error);
+      console.error("Gagal mencetak:", error);
       throw error;
     }
   }
 
   private convertHTMLToESCPOS(element: HTMLElement): Uint8Array {
     const commands: number[] = [];
+    commands.push(0x1b, 0x40); // Initialize
+    commands.push(0x1b, 0x61, 0x01); // Center
 
-    // Initialize
-    commands.push(0x1b, 0x40); // ESC @ - Initialize
+    const header = element.querySelector(".receipt-header");
+    const items = element.querySelector(".receipt-items");
+    const total = element.querySelector(".receipt-total");
+    const footer = element.querySelector(".receipt-footer");
 
-    // Center align
-    commands.push(0x1b, 0x61, 0x01); // ESC a 1
+    if (header) {
+      const name = header.querySelector("h2")?.textContent || "";
+      commands.push(0x1b, 0x45, 0x01, 0x1d, 0x21, 0x11);
+      commands.push(...this.textToBytes(name));
+      commands.push(0x1b, 0x45, 0x00, 0x1d, 0x21, 0x00, 0x0a);
 
-    // Get elements
-    const headerElement = element.querySelector(".receipt-header");
-    const itemsElement = element.querySelector(".receipt-items");
-    const totalElement = element.querySelector(".receipt-total");
-    const footerElement = element.querySelector(".receipt-footer");
+      const ps = header.querySelectorAll("p");
+      ps.forEach((p) => {
+        commands.push(...this.textToBytes(p.textContent || ""), 0x0a);
+      });
 
-    // Print header
-    if (headerElement) {
-      const storeName = headerElement.querySelector("h2")?.textContent || "";
-      // Bold + Double height
-      commands.push(0x1b, 0x45, 0x01); // Bold on
-      commands.push(0x1d, 0x21, 0x11); // Double size
-      commands.push(...this.textToBytes(storeName));
-      commands.push(0x1b, 0x45, 0x00); // Bold off
-      commands.push(0x1d, 0x21, 0x00); // Normal size
-      commands.push(0x0a); // Line feed
-
-      const paragraphs = headerElement.querySelectorAll("p");
-      if (paragraphs.length >= 2) {
-        commands.push(...this.textToBytes(paragraphs[0].textContent || ""));
-        commands.push(0x0a);
-        commands.push(...this.textToBytes(paragraphs[1].textContent || ""));
-        commands.push(0x0a);
-      }
-
-      // Transaction info
-      const infoDiv = headerElement.querySelector(".border-t");
-      if (infoDiv) {
-        commands.push(...this.textToBytes("--------------------------------"));
-        commands.push(0x0a);
-
-        // Left align for transaction info
-        commands.push(0x1b, 0x61, 0x00); // ESC a 0
-
-        infoDiv.querySelectorAll("p").forEach((p) => {
-          commands.push(...this.textToBytes(p.textContent || ""));
-          commands.push(0x0a);
+      const info = header.querySelector(".border-t");
+      if (info) {
+        commands.push(...this.textToBytes("-".repeat(32)), 0x0a);
+        commands.push(0x1b, 0x61, 0x00); // Left
+        info.querySelectorAll("p").forEach((p) => {
+          commands.push(...this.textToBytes(p.textContent || ""), 0x0a);
         });
       }
     }
 
-    // Items table
-    if (itemsElement) {
-      commands.push(...this.textToBytes("--------------------------------"));
-      commands.push(0x0a);
-
-      // Table header
+    if (items) {
+      commands.push(...this.textToBytes("-".repeat(32)), 0x0a);
       const headerLine = this.formatTableRow("Item", "Qty", "Harga", "Jumlah");
-      commands.push(...this.textToBytes(headerLine));
-      commands.push(0x0a);
+      commands.push(...this.textToBytes(headerLine), 0x0a);
 
-      const rows = itemsElement.querySelectorAll("tbody tr");
-      rows.forEach((row) => {
+      items.querySelectorAll("tbody tr").forEach((row) => {
         const cells = row.querySelectorAll("td");
         if (cells.length === 4) {
-          const item = cells[0].textContent?.trim() || "";
-          const qty = cells[1].textContent?.trim() || "";
-          const price = cells[2].textContent?.trim() || "";
-          const total = cells[3].textContent?.trim() || "";
-
-          const line = this.formatTableRow(item, qty, price, total);
-          commands.push(...this.textToBytes(line));
-          commands.push(0x0a);
+          const line = this.formatTableRow(
+            cells[0].textContent?.trim() || "",
+            cells[1].textContent?.trim() || "",
+            cells[2].textContent?.trim() || "",
+            cells[3].textContent?.trim() || ""
+          );
+          commands.push(...this.textToBytes(line), 0x0a);
         }
       });
     }
 
-    // Total section
-    if (totalElement) {
-      commands.push(...this.textToBytes("--------------------------------"));
-      commands.push(0x0a);
-
-      totalElement.querySelectorAll(".flex").forEach((flexDiv) => {
-        const spans = flexDiv.querySelectorAll("span");
+    if (total) {
+      commands.push(...this.textToBytes("-".repeat(32)), 0x0a);
+      total.querySelectorAll(".flex").forEach((div) => {
+        const spans = div.querySelectorAll("span");
         if (spans.length === 2) {
-          const label = spans[0].textContent?.trim() || "";
-          const value = spans[1].textContent?.trim() || "";
-          const line = this.formatTotalRow(label, value);
-          commands.push(...this.textToBytes(line));
-          commands.push(0x0a);
+          const line = this.formatTotalRow(
+            spans[0].textContent?.trim() || "",
+            spans[1].textContent?.trim() || ""
+          );
+          commands.push(...this.textToBytes(line), 0x0a);
         }
       });
     }
 
-    // Footer
-    if (footerElement) {
-      commands.push(0x1b, 0x61, 0x01); // Center align
-      commands.push(0x0a);
-      footerElement.querySelectorAll("p").forEach((p) => {
-        commands.push(...this.textToBytes(p.textContent || ""));
-        commands.push(0x0a);
+    if (footer) {
+      commands.push(0x1b, 0x61, 0x01, 0x0a);
+      footer.querySelectorAll("p").forEach((p) => {
+        commands.push(...this.textToBytes(p.textContent || ""), 0x0a);
       });
     }
 
@@ -252,43 +253,38 @@ class BluetoothThermalPrinter {
     price: string,
     total: string
   ): string {
-    const maxWidth = 32; // Thermal printer typically 32 chars for 58mm
-    const maxItemLength = 12;
-
-    const truncatedItem =
-      item.length > maxItemLength
-        ? item.substring(0, maxItemLength - 2) + ".."
-        : item.padEnd(maxItemLength);
-
-    return `${truncatedItem} ${qty.padStart(3)} ${price.padStart(
+    const maxItem = 12;
+    const truncated =
+      item.length > maxItem
+        ? item.slice(0, maxItem - 2) + ".."
+        : item.padEnd(maxItem);
+    return `${truncated} ${qty.padStart(3)} ${price.padStart(
       7
     )} ${total.padStart(7)}`;
   }
 
   private formatTotalRow(label: string, value: string): string {
-    const maxWidth = 32;
-    const padding = maxWidth - label.length - value.length;
-    return label + " ".repeat(Math.max(padding, 1)) + value;
+    const padding = Math.max(1, 32 - label.length - value.length);
+    return label + " ".repeat(padding) + value;
   }
 
   private textToBytes(text: string): number[] {
-    const bytes: number[] = [];
-    for (let i = 0; i < text.length; i++) {
-      bytes.push(text.charCodeAt(i) & 0xff);
-    }
-    return bytes;
+    const encoder = new TextEncoder();
+    return Array.from(encoder.encode(text));
   }
 
-  private async sendCommand(command: number[]): Promise<void> {
-    if (this.printerDevice?.characteristic) {
-      await this.printerDevice.characteristic.writeValue(
-        new Uint8Array(command)
-      );
+  private async sendCommand(cmd: number[]): Promise<void> {
+    if (!this.printerDevice?.characteristic) return;
+    const arr = new Uint8Array(cmd);
+    if (this.printerDevice.characteristic.writeValueWithoutResponse) {
+      await this.printerDevice.characteristic.writeValueWithoutResponse(arr);
+    } else {
+      await this.printerDevice.characteristic.writeValue(arr);
     }
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((r) => setTimeout(r, ms));
   }
 
   disconnect(): void {
