@@ -13,6 +13,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useCart } from "../../contexts/CartContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -21,6 +22,7 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { cart } = useCart();
+  const { logout } = useAuth();
 
   useEffect(() => {
     if (darkMode) {
@@ -190,7 +192,14 @@ const Header: React.FC = () => {
                       </>
                     )}
                   </button>
-                  <button className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  <button
+                    className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    onClick={() => {
+                      logout();
+                      navigate("/login");
+                      setIsProfileMenuOpen(false);
+                    }}
+                  >
                     <LogOut size={14} className="inline mr-1 sm:mr-2" /> Keluar
                   </button>
                 </div>
